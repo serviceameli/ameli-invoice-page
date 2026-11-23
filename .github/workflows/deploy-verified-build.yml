@@ -1,0 +1,47 @@
+name: Deploy verified invoice generator
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy-verified-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: invoice-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified production build
+        env:
+          BUILD_URL: 'https://sdmntpreastus3.oaiusercontent.com/files/00000000-0e7c-8212-a38e-9b00c481f7b6/raw?se=2026-11-23T13%3A54%3A05Z&sp=r&sv=2026-06-06&sr=b&scid=b80c8646-d2a7-43c7-a2bb-8ee30a5563f6&skoid=732f244e-db13-47c3-bcc7-7ee02a9397bc&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-23T01%3A47%3A14Z&ske=2026-11-24T01%3A47%3A14Z&sks=b&skv=2026-06-06&sig=l9ZCds4MDi5SvUJ/sUE6YKC9awtySwGpkSiq/VD49xM%3D'
+        run: |
+          curl --fail --location "$BUILD_URL" --output build.zip
+          mkdir site
+          unzip -q build.zip -d site
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
