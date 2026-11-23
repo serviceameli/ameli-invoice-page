@@ -1,4 +1,4 @@
-name: Deploy verified invoice generator
+name: Publish verified invoice generator
 
 on:
   push:
@@ -9,44 +9,37 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: invoice-pages
+  group: invoice-pages-publish
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Download verified production build
+      - name: Checkout public page
+        uses: actions/checkout@v4
+
+      - name: Download and verify production build
         env:
-          BUILD_URL: 'https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-c4a8-81f7-bc2e-daba5a407b4f/raw?se=2026-11-23T14%3A05%3A28Z&sp=r&sv=2026-06-06&sr=b&scid=05e1ca4e-5b84-4e5b-9d93-843e10be65c2&skoid=732f244e-db13-47c3-bcc7-7ee02a9397bc&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-22T16%3A01%3A31Z&ske=2026-11-23T16%3A01%3A31Z&sks=b&skv=2026-06-06&sig=mKKy7jzMH0PTsoiS8UcHP/0Lq4/UGcionocu0KCea7Y%3D'
+          BUILD_URL: 'https://sdmntpreastus3.oaiusercontent.com/files/00000000-aca8-8212-8acf-2d90ad6a8fea/raw?se=2026-11-23T14%3A12%3A59Z&sp=r&sv=2026-06-06&sr=b&scid=312f11be-b736-4032-9c27-5befc01a393b&skoid=732f244e-db13-47c3-bcc7-7ee02a9397bc&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-23T13%3A06%3A23Z&ske=2026-11-24T13%3A06%3A23Z&sks=b&skv=2026-06-06&sig=7NkcLvVrliaaxzqGjh66btxF6eSJIjzir%2BgUn2SUfUc%3D'
         run: |
           curl --fail --location "$BUILD_URL" --output build.zip
+          echo "68aa99ac39fbc20a0dad9f3efa8618e54e25a80182d628b6b0388a7b7991b41b  build.zip" | sha256sum --check
           mkdir site
           unzip -q build.zip -d site
 
-      - name: Use GitHub Actions for Pages
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api --method PUT "repos/${{ github.repository }}/pages" -f build_type=workflow
+      - name: Copy verified files
+        run: |
+          cp -R site/. .
+          touch .nojekyll
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish updated page
+        run: |
+          git config user.name serviceameli
+          git config user.email service.ameli.aniri@gmail.com
+          git add index.html assets .nojekyll
+          git diff --cached --quiet || git commit -m "Publish Martynova Sberbank account"
+          git push
